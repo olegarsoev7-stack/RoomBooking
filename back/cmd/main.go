@@ -32,10 +32,13 @@ func main() {
 
 	router := echo.New()
 
-	api := router.Group("api")
+	api := router.Group("api/v1")
 
-	api.GET("/resume/:id", svc.GetResume)
-	api.POST("/resume", svc.CreateResume)
+	api.POST("/bookings", svc.CreateBooking)
+	api.GET("/bookings", svc.ListBookings)
+	api.GET("/bookings/:id", svc.GetBooking)
+	api.PATCH("/bookings/:id", svc.UpdateBooking)
+	api.DELETE("/bookings/:id", svc.DeleteBooking)
 
 	router.Logger.Fatal(router.Start(":" + cfg.GetWebPort()))
 }

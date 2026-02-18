@@ -1,7 +1,7 @@
 package service
 
 import (
-	"search-job/internal/resume"
+	"search-job/internal/booking"
 	"search-job/pkg/postgres"
 
 	"github.com/labstack/echo/v4"
@@ -16,7 +16,7 @@ type Service struct {
 	db     *postgres.DB
 	logger echo.Logger
 
-	resumeRepo *resume.Repo
+	bookingRepo *booking.Repo
 }
 
 func NewService(db *postgres.DB, logger echo.Logger) *Service {
@@ -30,7 +30,7 @@ func NewService(db *postgres.DB, logger echo.Logger) *Service {
 }
 
 func (s *Service) initRepositories(db *postgres.DB) {
-	s.resumeRepo = resume.NewRepo(db)
+	s.bookingRepo = booking.NewRepo(db)
 }
 
 // Пока можно не вдаваться в то что ниже
