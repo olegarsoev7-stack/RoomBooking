@@ -1,6 +1,8 @@
 package service
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 
 	"search-job/internal/auth"
@@ -38,11 +40,17 @@ func (s *Service) Login(c echo.Context) error {
 	// 1. Ищем пользователя по Email
 	user, err := s.bookingRepo.GetUserByEmail(c.Request().Context(), input.Email)
 	if err != nil {
+
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+		}
+
 		s.logger.Error(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
 	}
+
 	if user == nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "User not found"})
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 	}
 
 	// 2. Проверяем пароль
@@ -50,11 +58,12 @@ func (s *Service) Login(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid password"})
 	}
 
-	// 3. Генерируем токен, подставляя реальный ID пользователя!
+	// 3. Генерируем токен
 	token, err := jwt.GenerateToken(user.ID)
 	if err != nil {
 		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not generate token"})
+
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Could not generate token"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": token})

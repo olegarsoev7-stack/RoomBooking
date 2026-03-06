@@ -7,6 +7,9 @@ import (
 	"search-job/pkg/logs"
 	"search-job/pkg/postgres"
 
+	"search-job/pkg/holiday"
+	"time"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
@@ -28,7 +31,9 @@ func main() {
 	}
 	log.Info("Postgres successfully connected")
 
-	svc := service.NewService(db, logger)
+	hc := holiday.NewClient(3 * time.Second)
+
+	svc := service.NewService(db, logger, hc)
 
 	router := echo.New()
 
@@ -39,6 +44,10 @@ func main() {
 	api.GET("/bookings/:id", svc.GetBooking)
 	api.PATCH("/bookings/:id", svc.UpdateBooking)
 	api.DELETE("/bookings/:id", svc.DeleteBooking)
+
+	api.POST("/bookings/:id/restore", svc.RestoreBooking)
+	api.GET("/resources/:id/schedule", svc.GetResourceSchedule)
+	api.GET("/bookings/summary", svc.GetBookingsSummary)
 
 	router.Logger.Fatal(router.Start(":" + cfg.GetWebPort()))
 }

@@ -2,6 +2,7 @@ package booking
 
 import (
 	"context"
+	"time"
 
 	"search-job/internal/models"
 	"search-job/pkg/postgres"
@@ -142,11 +143,87 @@ func (r *Repo) RUpdateBooking(ctx context.Context, b *models.Booking) error {
 
 func (r *Repo) RDeleteBooking(ctx context.Context, id int) error {
 	_, err := r.db.Exec(ctx, `
-		DELETE FROM bookings
-		WHERE id = $1
+		UPDATE bookings 
+		SET deleted_at = NOW(), updated_at = NOW() 
+		WHERE id = $1 AND deleted_at IS NULL
 	`, id)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (r *Repo) HasOverlap(ctx context.Context, resourceID int, startAt, endAt time.Time) (bool, error) {
+	var count int
+	// Ищем активные (не удаленные) бронирования, которые пересекаются с новым
+	query := `
+		SELECT COUNT(*) FROM bookings 
+		WHERE resource_id = $1 
+		  AND deleted_at IS NULL 
+		  AND start_at < $3 
+		  AND end_at > $2`
+
+	err := r.db.QueryRow(ctx, query, resourceID, startAt, endAt).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *Repo) RRestoreBooking(ctx context.Context, id int) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE bookings 
+		SET deleted_at = NULL, updated_at = NOW() 
+		WHERE id = $1 AND deleted_at IS NOT NULL
+	`, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Получение расписания конкретного ресурса за период
+func (r *Repo) RGetResourceSchedule(ctx context.Context, resourceID int, from, to time.Time) ([]models.Booking, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, user_id, resource_id, title, start_at, end_at, is_holiday, created_at, updated_at, deleted_at
+		FROM bookings 
+		WHERE resource_id = $1 
+		  AND deleted_at IS NULL
+		  AND start_at >= $2 
+		  AND start_at <= $3 
+		ORDER BY start_at ASC
+	`, resourceID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []models.Booking
+	for rows.Next() {
+		var b models.Booking
+		if err := rows.Scan(
+			&b.ID, &b.UserID, &b.ResourceID, &b.Title,
+			&b.StartAt, &b.EndAt, &b.IsHoliday,
+			&b.CreatedAt, &b.UpdatedAt, &b.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		res = append(res, b)
+	}
+	return res, rows.Err()
+}
+
+// Подсчет количества бронирований для сводки
+func (r *Repo) RGetBookingsCount(ctx context.Context, resourceID int, from, to time.Time) (int, error) {
+	var count int
+	query := `
+		SELECT COUNT(*) 
+		FROM bookings 
+		WHERE resource_id = $1 
+		  AND deleted_at IS NULL
+		  AND start_at >= $2 
+		  AND start_at <= $3`
+
+	err := r.db.QueryRow(ctx, query, resourceID, from, to).Scan(&count)
+	return count, err
 }

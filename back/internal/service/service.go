@@ -2,6 +2,7 @@ package service
 
 import (
 	"search-job/internal/booking"
+	"search-job/pkg/holiday"
 	"search-job/pkg/postgres"
 
 	"github.com/labstack/echo/v4"
@@ -13,20 +14,19 @@ const (
 )
 
 type Service struct {
-	db     *postgres.DB
-	logger echo.Logger
-
-	bookingRepo *booking.Repo
+	db            *postgres.DB
+	logger        echo.Logger
+	bookingRepo   *booking.Repo
+	holidayClient *holiday.Client
 }
 
-func NewService(db *postgres.DB, logger echo.Logger) *Service {
-	svc := &Service{
-		db:     db,
-		logger: logger,
+func NewService(db *postgres.DB, logger echo.Logger, hc *holiday.Client) *Service {
+	return &Service{
+		db:            db,
+		logger:        logger,
+		bookingRepo:   booking.NewRepo(db),
+		holidayClient: hc, // <-- Сохраняем в структуру
 	}
-	svc.initRepositories(db)
-
-	return svc
 }
 
 func (s *Service) initRepositories(db *postgres.DB) {
